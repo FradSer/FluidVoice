@@ -201,9 +201,11 @@ struct MeetingTranscriptionView: View {
                                 .stroke(self.theme.palette.cardBorder.opacity(0.45), lineWidth: 1)
                         )
                 )
-                .overlay(RoundedRectangle(cornerRadius: 12)
-                    .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8]))
-                    .foregroundColor(Color.fluidGreen.opacity(0.3)))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 12)
+                        .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [8]))
+                        .foregroundColor(Color.fluidGreen.opacity(0.3))
+                )
             }
         }
         .fileImporter(
@@ -543,7 +545,9 @@ struct MeetingTranscriptionView: View {
 // MARK: - Document for Export
 
 struct TranscriptionDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.plainText, .json] }
+    static var readableContentTypes: [UTType] {
+        [.plainText, .json]
+    }
 
     let result: TranscriptionResult
     let format: MeetingTranscriptionView.ExportFormat

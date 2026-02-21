@@ -48,12 +48,12 @@ struct TranscriptionResult: Identifiable, Sendable, Codable {
 
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
-        try c.encode(text, forKey: .text)
-        try c.encode(confidence, forKey: .confidence)
-        try c.encode(duration, forKey: .duration)
-        try c.encode(processingTime, forKey: .processingTime)
-        try c.encode(fileName, forKey: .fileName)
-        try c.encode(timestamp, forKey: .timestamp)
+        try c.encode(self.text, forKey: .text)
+        try c.encode(self.confidence, forKey: .confidence)
+        try c.encode(self.duration, forKey: .duration)
+        try c.encode(self.processingTime, forKey: .processingTime)
+        try c.encode(self.fileName, forKey: .fileName)
+        try c.encode(self.timestamp, forKey: .timestamp)
     }
 }
 
@@ -67,7 +67,7 @@ final class MeetingTranscriptionService: ObservableObject {
     @Published var error: String?
     @Published var result: TranscriptionResult?
 
-    // Share the ASR service instance to avoid loading models twice
+    /// Share the ASR service instance to avoid loading models twice
     private let asrService: ASRService
 
     init(asrService: ASRService) {

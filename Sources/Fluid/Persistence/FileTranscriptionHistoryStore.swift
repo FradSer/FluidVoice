@@ -119,7 +119,7 @@ final class FileTranscriptionHistoryStore: ObservableObject {
         let entry = FileTranscriptionEntry(from: result)
         self.entries.insert(entry, at: 0)
 
-        if self.entries.count > maxEntries {
+        if self.entries.count > self.maxEntries {
             self.entries.removeLast()
         }
 
