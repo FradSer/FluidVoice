@@ -7,6 +7,7 @@ final class TranscriptionSoundPlayer {
     static let shared = TranscriptionSoundPlayer()
 
     private var players: [String: AVAudioPlayer] = [:]
+    private var savedSystemVolume: Float?
 
     private init() {}
 
@@ -38,15 +39,12 @@ final class TranscriptionSoundPlayer {
         let settings = SettingsStore.shared
         let desiredVolume = overrideVolume ?? settings.transcriptionSoundVolume
 
-        let playerVolume: Float
         if settings.transcriptionSoundIndependentVolume {
-            let systemVol = Self.getSystemVolume()
-            // If muted, don't play
-            guard systemVol > 0.001 else { return }
-            // Compensate for system volume so the sound is always at the desired absolute level
-            playerVolume = min(1.0, desiredVolume / systemVol)
-        } else {
-            playerVolume = desiredVolume
+            let currentSystemVol = Self.getSystemVolume()
+            guard currentSystemVol > 0.001 else { return }
+            // Save current system volume and temporarily set it to desired level
+            self.savedSystemVolume = currentSystemVol
+            Self.setSystemVolume(desiredVolume)
         }
 
         do {
@@ -60,9 +58,27 @@ final class TranscriptionSoundPlayer {
             }
 
             player.currentTime = 0
-            player.volume = playerVolume
+            if settings.transcriptionSoundIndependentVolume {
+                player.volume = 1.0
+            } else {
+                player.volume = desiredVolume
+            }
             player.play()
+
+            // Restore system volume after the sound finishes
+            if settings.transcriptionSoundIndependentVolume, let saved = self.savedSystemVolume {
+                let duration = player.duration
+                DispatchQueue.main.asyncAfter(deadline: .now() + duration + 0.05) { [weak self] in
+                    Self.setSystemVolume(saved)
+                    self?.savedSystemVolume = nil
+                }
+            }
         } catch {
+            // Restore system volume on error
+            if let saved = self.savedSystemVolume {
+                Self.setSystemVolume(saved)
+                self.savedSystemVolume = nil
+            }
             DebugLogger.shared.error(
                 "Failed to play sound \(soundName).m4a: \(error.localizedDescription)",
                 source: "TranscriptionSoundPlayer"
@@ -70,7 +86,7 @@ final class TranscriptionSoundPlayer {
         }
     }
 
-    // MARK: - System Volume Reading via CoreAudio
+    // MARK: - System Volume via CoreAudio
 
     private static func getDefaultOutputDeviceID() -> AudioObjectID? {
         var address = AudioObjectPropertyAddress(
@@ -100,5 +116,20 @@ final class TranscriptionSoundPlayer {
         let status = AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &volume)
         guard status == noErr else { return 1.0 }
         return volume
+    }
+
+    private static func setSystemVolume(_ volume: Float) {
+        guard let deviceID = getDefaultOutputDeviceID() else { return }
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwareServiceDeviceProperty_VirtualMainVolume,
+            mScope: kAudioDevicePropertyScopeOutput,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        var vol = Float32(max(0, min(1, volume)))
+        let size = UInt32(MemoryLayout<Float32>.size)
+        let status = AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &vol)
+        if status != noErr {
+            DebugLogger.shared.error("Failed to set system volume: OSStatus \(status)", source: "TranscriptionSoundPlayer")
+        }
     }
 }
